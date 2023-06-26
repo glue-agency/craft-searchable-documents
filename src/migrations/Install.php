@@ -12,7 +12,7 @@ use craft\models\FieldLayout;
 /**
  * m230622_064006_add_searchable_content_field migration.
  */
-class m230622_064006_add_searchable_content_field extends Migration
+class Install extends Migration
 {
     /**
      * @inheritdoc
