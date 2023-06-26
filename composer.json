@@ -2,6 +2,21 @@
     "name": "glue-agency/searchable-documents",
     "description": "Make documents searchable",
     "type": "craft-plugin",
+    "version": "1.0.0",
+    "keywords": [
+        "craft",
+        "cms",
+        "craftcms",
+        "craft-plugin"
+    ],
+
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Glue",
+            "homepage": "https://www.glue.be"
+        }
+    ],
     "require": {
         "php": ">=8.0.2",
         "craftcms/cms": "^4.4.0",
@@ -19,7 +34,6 @@
         }
     },
     "minimum-stability": "dev",
-    "prefer-stable": false,
     "extra": {
         "handle": "_searchable-documents",
         "name": "Searchable Documents",
