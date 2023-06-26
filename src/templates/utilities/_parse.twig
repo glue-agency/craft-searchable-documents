@@ -1,0 +1,10 @@
+<h2>{{ "Parse Documents"|t('_searchable-documents') }}</h2>
+<form method="POST">
+    {{ actionInput('') }}
+    {{ csrfInput() }}
+    <a class="btn submit formsubmit" data-icon="refresh"
+       data-action="_searchable-documents/documents/parse-all"
+       data-confirm="{{ 'Are you sure you want run a complete parse of all documents?'|t('_searchable-documents') }}">
+        {{ 'Parse all documents'|t('_searchable-documents') }}
+    </a>
+</form>

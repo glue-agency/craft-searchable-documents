@@ -1,0 +1,32 @@
+{# @var plugin \glueagency\searchabledocuments\SearchableDocuments #}
+{# @var settings \glueagency\searchabledocuments\models\Settings #}
+
+{% import '_includes/forms.twig' as forms %}
+
+{{ forms.textField({
+    label: "Plugin name"|t('_searchable-documents'),
+    first: true,
+    id: 'pluginName',
+    name: 'pluginName',
+    value: settings.pluginName
+}) }}
+
+{{ forms.lightswitchField({
+    name: 'autoParse',
+    label: 'Parse documents on upload'|t('app'),
+    on: settings.autoParse,
+}) }}
+
+
+{#{% set parsers = craft.searchabledocuments.getParsers %}#}
+{#{% set fileTypes = craft.searchabledocuments.getFileTypes %}#}
+
+{#{% for type in fileTypes %}#}
+{#    {{ forms.selectField({#}
+{#        label: type.label,#}
+{#        id: 'parseOptions-' ~ type.value,#}
+{#        name: 'parseOptions[' ~ type.value ~ ']',#}
+{#        options: parsers,#}
+{#        value: settings.parseOptions[type.value] ?? ''#}
+{#    }) }}#}
+{#{% endfor %}#}
