@@ -33,7 +33,6 @@
             "glueagency\\searchabledocuments\\": "src/"
         }
     },
-    "minimum-stability": "dev",
     "extra": {
         "handle": "_searchable-documents",
         "name": "Searchable Documents",
