@@ -18,6 +18,13 @@
     on: settings.autoParseEntry,
 }) }}
 
+{{ forms.textField({
+    label: "PdfToText binary path"|t('_searchable-documents'),
+    id: 'pdfToTextBinary',
+    name: 'pdfToTextBinary',
+    value: settings.pdfToTextBinary
+}) }}
+
 {{ forms.selectField({
     label: 'Searchable section'|t('_searchable-documents'),
     id: 'searchableSectionHandle',

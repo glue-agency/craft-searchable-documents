@@ -23,7 +23,7 @@ class Settings extends Model
     public ?string $searchableFieldHandle = null;
 
     public bool $settingsLocked = false;
-
+    public string $pdfToTextBinary = '/usr/local/bin/pdftotext';
     public function attributeLabels(): array
     {
         return [

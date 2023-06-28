@@ -115,7 +115,10 @@ class ParserService extends Component
         $options = [
             'nopgbrk',
         ];
-        return Pdf::getText($filePath, '/usr/local/bin/pdftotext', $options);
+
+        $binaryPath = SearchableDocuments::getInstance()->getSettings()->pdfToTextBinary;
+
+        return Pdf::getText($filePath, $binaryPath, $options);
     }
 
     /**
