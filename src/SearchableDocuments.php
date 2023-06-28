@@ -187,7 +187,11 @@ class SearchableDocuments extends Plugin
                 Element::EVENT_DEFINE_ADDITIONAL_BUTTONS,
                 function (DefineHtmlEvent $event) use ($searchableSectionHandle, $searchableFieldHandle, $fileTypes) {
                     $entry = $event->sender;
-                    if ($entry->section->handle === $searchableSectionHandle) {
+                    $customFields = $entry->getFieldLayout()->getCustomFields();
+                    $layoutHasField = array_filter($customFields, function($field) {
+                        return $field->handle === self::SEARCHABLE_FIELD_HANDLE;
+                    });
+                    if ($entry->section->handle === $searchableSectionHandle && $layoutHasField) {
                         $assetIds = $entry->{$searchableFieldHandle}->kind(array_keys($fileTypes))->ids();
                         $text = Craft::t('_searchable-documents', 'Parse document');
                         $count = count($assetIds);
@@ -207,7 +211,16 @@ class SearchableDocuments extends Plugin
                 Asset::class,
                 Element::EVENT_DEFINE_ADDITIONAL_BUTTONS,
                 function (DefineHtmlEvent $event) {
+                    /** @var Asset $asset */
                     $asset = $event->sender;
+                    $customFields = $asset->getFieldLayout()->getCustomFields();
+                    $layoutHasField = array_filter($customFields, function($field) {
+                        return $field->handle === self::SEARCHABLE_FIELD_HANDLE;
+                    });
+
+                    if (!$layoutHasField) {
+                        return;
+                    }
                     $fileTypes = $this->getSettings()->getFileTypes();
                     if (in_array($asset->kind, array_keys($fileTypes))) {
                         // Return the button HTML
