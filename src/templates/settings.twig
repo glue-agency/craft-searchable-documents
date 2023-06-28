@@ -18,11 +18,13 @@
     on: settings.autoParseEntry,
 }) }}
 
-{{ forms.textField({
+{{ forms.autosuggestField({
     label: "PdfToText binary path"|t('_searchable-documents'),
     id: 'pdfToTextBinary',
     name: 'pdfToTextBinary',
-    value: settings.pdfToTextBinary
+    required: true,
+    suggestEnvVars: true,
+    value: settings.pdfToTextBinary ?? '',
 }) }}
 
 {{ forms.selectField({
