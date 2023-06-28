@@ -22,7 +22,7 @@ class Settings extends Model
     public ?string $searchableSectionHandle = null;
     public ?string $searchableFieldHandle = null;
 
-    public bool $settingsLocked = true;
+    public bool $settingsLocked = false;
 
     public function attributeLabels(): array
     {
