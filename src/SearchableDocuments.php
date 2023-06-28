@@ -225,6 +225,14 @@ class SearchableDocuments extends Plugin
                         return;
                     }
 
+                    if ($entry->getType()->handle !== $searchableSectionHandle) {
+                        return;
+                    }
+
+                    if (!$entry->{$searchableFieldHandle}) {
+                        return;
+                    }
+
                     $asset = $entry->{$searchableFieldHandle}->one();
                     if (!$asset && !empty($entry->{self::SEARCHABLE_FIELD_HANDLE})) {
                         $entry->setFieldValue(self::SEARCHABLE_FIELD_HANDLE, null);
