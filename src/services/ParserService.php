@@ -7,6 +7,7 @@ use craft\base\Element;
 use craft\elements\Asset;
 use craft\elements\Entry;
 use craft\errors\ElementNotFoundException;
+use craft\helpers\App;
 use craft\helpers\FileHelper;
 use craft\helpers\Search as SearchHelper;
 use glueagency\searchabledocuments\SearchableDocuments;
@@ -116,7 +117,7 @@ class ParserService extends Component
             'nopgbrk',
         ];
 
-        $binaryPath = SearchableDocuments::getInstance()->getSettings()->pdfToTextBinary;
+        $binaryPath = App::parseEnv(SearchableDocuments::getInstance()->getSettings()->pdfToTextBinary);
 
         return Pdf::getText($filePath, $binaryPath, $options);
     }
