@@ -6,6 +6,7 @@ use craft\base\Batchable;
 use craft\db\Query;
 use craft\db\QueryBatcher;
 use craft\elements\Asset;
+use craft\elements\Entry;
 use craft\errors\ElementNotFoundException;
 use craft\i18n\Translation;
 use craft\queue\BaseBatchedJob;
@@ -18,12 +19,24 @@ class BatchParseDocumentsJob extends BaseBatchedJob {
     public int $batchSize = 50;
 
     public ?Query $query = null;
+    public bool $parseAll = false;
+    public bool $parseAllEntries = false;
+
+    public bool $parseByEntry = false;
+
+    public array $entryIds = [];
 
     protected function loadData(): Batchable
     {
-        if (!$this->query) {
+        if ($this->parseAll) {
             $fileTypes = SearchableDocuments::getInstance()->getSettings()->getFileTypes();
             $this->query = Asset::find()->kind(array_keys($fileTypes));
+        }
+
+        if ($this->parseAllEntries) {
+            $searchableSectionHandle = SearchableDocuments::getInstance()->getSettings()->searchableSectionHandle;
+            $this->query = Entry::find()->section($searchableSectionHandle);
+            $this->parseByEntry = true;
         }
 
         return new QueryBatcher($this->query);
@@ -37,7 +50,13 @@ class BatchParseDocumentsJob extends BaseBatchedJob {
      */
     protected function processItem(mixed $item): void
     {
-        SearchableDocuments::getInstance()->parserService->parseDocument($item);
+        if ($this->parseByEntry) {
+            $searchableFieldHandle = SearchableDocuments::getInstance()->getSettings()->searchableFieldHandle;
+            $asset = $item->{$searchableFieldHandle}->one();
+            SearchableDocuments::getInstance()->parserService->parseEntryDocument($item, $asset);
+        } else {
+            SearchableDocuments::getInstance()->parserService->parseDocument($item);
+        }
     }
 
     /**

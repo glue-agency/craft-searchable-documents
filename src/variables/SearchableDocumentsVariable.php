@@ -27,4 +27,9 @@ class SearchableDocumentsVariable
     {
         return SearchableDocuments::getInstance()->getSettings()->getParsers();
     }
+
+    public function getFieldsForSection($sectionHandle): array
+    {
+        return SearchableDocuments::getInstance()->getSettings()->getFieldsForSection($sectionHandle);
+    }
 }

@@ -3,9 +3,12 @@
 namespace glueagency\searchabledocuments\services;
 
 use Craft;
+use craft\base\Element;
 use craft\elements\Asset;
+use craft\elements\Entry;
 use craft\errors\ElementNotFoundException;
 use craft\helpers\FileHelper;
+use craft\helpers\Search as SearchHelper;
 use glueagency\searchabledocuments\SearchableDocuments;
 use PhpOffice\PhpWord\Element\Text;
 use PhpOffice\PhpWord\Element\TextRun;
@@ -13,11 +16,13 @@ use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\Reader\MsDoc;
 use PhpOffice\PhpWord\Reader\Word2007;
 use PhpOffice\PhpWord\Settings;
-use Smalot\PdfParser\Config;
+use Smalot\PdfParser\Page;
 use Smalot\PdfParser\Parser;
+use Smalot\PdfParser\Config;
 use yii\base\Component;
 use yii\base\Exception;
 use yii\base\InvalidConfigException;
+use Spatie\PdfToText\Pdf;
 
 /**
  * Parser Service service
@@ -30,10 +35,10 @@ class ParserService extends Component
      * @throws InvalidConfigException
      * @throws Exception
      */
-    public function parseDocument(Asset $asset): bool
+    public function parseDocument(Asset $asset, $return_text = false): bool|string
     {
         $kind = $asset->kind;
-        $url = $asset->getUrl();
+        $url = $this->getFilePath($asset);
         $text = false;
         switch ($kind) {
             case 'pdf':
@@ -44,18 +49,62 @@ class ParserService extends Component
                 break;
         }
         if ($text) {
-            $asset->setFieldValues([
-                'glue_searchableContent' => $text
-            ]);
-
-            if (!Craft::$app->elements->saveElement($asset)) {
-                SearchableDocuments::error(json_encode($asset->getErrors()));
-                return false;
+            if ($return_text) {
+                return $text;
             }
-            SearchableDocuments::info("Searchable content saved for $asset->title");
-            return true;
+            return $this->saveToElement($asset, $text);
         }
+
         return false;
+    }
+
+    /**
+     * @throws \Throwable
+     * @throws ElementNotFoundException
+     * @throws InvalidConfigException
+     * @throws Exception
+     */
+    public function parseEntryDocument(Entry $entry, Asset $asset): bool
+    {
+        $text = $this->parseDocument($asset, true);
+        return $this->saveToElement($entry, $text);
+    }
+
+    /**
+     * @throws \Throwable
+     * @throws ElementNotFoundException
+     * @throws InvalidConfigException
+     * @throws Exception
+     */
+    public function parseMultipleDocumentsForEntry(Entry $entry, array $assets): bool
+    {
+        $text = '';
+        foreach ($assets as $asset) {
+            $text .= $this->parseDocument($asset, true);
+        }
+        return $this->saveToElement($entry, $text);
+    }
+
+    /**
+     * @throws ElementNotFoundException
+     * @throws \Throwable
+     * @throws Exception
+     */
+    public function saveToElement(Element $element, $text): bool
+    {
+        $site = $element->getSite();
+        $text = SearchHelper::normalizeKeywords($text, [], true, $site->language);
+
+        $element->setFieldValue(SearchableDocuments::SEARCHABLE_FIELD_HANDLE, $text);
+
+        if (!Craft::$app->elements->saveElement($element)) {
+            SearchableDocuments::error(json_encode($element->getErrors()));
+            return false;
+        }
+        $type = get_class($element);
+        SearchableDocuments::info("Searchable content saved for $type: $element->title");
+
+        return true;
     }
 
     /**
@@ -63,8 +112,10 @@ class ParserService extends Component
      */
     public function parsePdf($filePath): string
     {
-        $parser = new Parser();
-        return $parser->parseFile($filePath)->getText();
+        $options = [
+            'nopgbrk',
+        ];
+        return Pdf::getText($filePath, '/usr/local/bin/pdftotext', $options);
     }
 
     /**
@@ -78,7 +129,7 @@ class ParserService extends Component
             $parser = new MsDoc();
         }
 
-        $url = $asset->getVolume()->getFs()->getRootPath() . DIRECTORY_SEPARATOR . $asset->getPath();
+        $url = $this->getFilePath($asset);
         $content = $parser->load($url);
         $sections = $content->getSections();
         $text = '';
@@ -130,5 +181,13 @@ class ParserService extends Component
             FileHelper::deleteFileAfterRequest($tempFilePath);
         }
         return $text;
+    }
+
+    /**
+     * @throws InvalidConfigException
+     */
+    public function getFilePath(Asset $asset): string
+    {
+        return $asset->getVolume()->getFs()->getRootPath() . DIRECTORY_SEPARATOR . $asset->getPath();
     }
 }

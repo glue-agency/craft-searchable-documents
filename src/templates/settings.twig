@@ -12,21 +12,85 @@
 }) }}
 
 {{ forms.lightswitchField({
-    name: 'autoParse',
-    label: 'Parse documents on upload'|t('app'),
-    on: settings.autoParse,
+    name: 'autoParseEntry',
+    label: 'Parse related documents on first save'|t('_searchable-documents'),
+    instructions: 'When you first save an entry of the type selected below and you select a searchable document. It will get parsed afters saving.'|t('_searchable-documents'),
+    on: settings.autoParseEntry,
 }) }}
 
+{{ forms.selectField({
+    label: 'Searchable section'|t('_searchable-documents'),
+    id: 'searchableSectionHandle',
+    name: 'searchableSectionHandle',
+    required: true,
+    options: settings.getSections(),
+    value: settings.searchableSectionHandle,
+    disabled: settings.settingsLocked
+}) }}
 
-{#{% set parsers = craft.searchabledocuments.getParsers %}#}
-{#{% set fileTypes = craft.searchabledocuments.getFileTypes %}#}
+<div id="searchableFieldHandle-wrapper">
+    {{ forms.selectField({
+        label: 'Searchable section field'|t('_searchable-documents'),
+        id: 'searchableFieldHandle',
+        fieldAttributes: {
+            class: [settings.searchableSectionHandle ?? 'hidden'],
+        },
+        name: 'searchableFieldHandle',
+        options: settings.searchableSectionHandle ? settings.getFieldsForSection(settings.searchableSectionHandle) : [],
+        value: settings.searchableFieldHandle,
+        required: true,
+        disabled: settings.settingsLocked
+    }) }}
+    <div id="searchableFieldHandle-error" class="error hidden">{{ 'No Asset fields were found for the selected section'|t('_searchable-documents') }}</div>
+</div>
+{% if settings.settingsLocked %}
+    <a class="btn submit formsubmit" data-icon="remove"
+       data-action="_searchable-documents/settings/unlock"
+       data-confirm="{{ 'Are you sure you want to remove the current section settings?'|t('_searchable-documents') }}">
+        {{ 'Remove section settings'|t('_searchable-documents') }}
+    </a>
+{% endif %}
 
-{#{% for type in fileTypes %}#}
-{#    {{ forms.selectField({#}
-{#        label: type.label,#}
-{#        id: 'parseOptions-' ~ type.value,#}
-{#        name: 'parseOptions[' ~ type.value ~ ']',#}
-{#        options: parsers,#}
-{#        value: settings.parseOptions[type.value] ?? ''#}
-{#    }) }}#}
-{#{% endfor %}#}
+
+{% js %}
+var $sectionHandleInput = $("#settings-searchableSectionHandle");
+
+var $searchableFieldWrapper = $('#searchableFieldHandle-wrapper');
+var $searchableField = $('#settings-searchableFieldHandle-field');
+var $searchableFieldInput = $('#settings-searchableFieldHandle');
+
+var $errorMessage = $('#settings-searchableFieldHandle-error');
+
+var $submit = $('#main-form .submit');
+
+$sectionHandleInput.change(function (e) {
+    const handle = $(this).val();
+    $searchableField.find('.input').addClass('hidden');
+    $searchableField.removeClass('hidden');
+    $errorMessage.addClass('hidden');
+
+    $submit.removeClass('disabled');
+    $submit.prop('disabled', false)
+
+    $('#settings-searchableFieldHandle option').each(function() {
+        $(this).remove()
+    })
+    Craft.sendActionRequest('GET', Craft.getActionUrl('_searchable-documents/settings/get-fields-for-section', {
+        handle
+    }))
+        .then((response) => {
+            if (response.status === 200) {
+                if (response.data.length !== 0) {
+                    response.data.forEach(function(item) {
+                        $searchableFieldInput.append('<option value="' + item.value +  '">' + item.label + '</option>')
+                    });
+                    $searchableField.find('.input').removeClass('hidden');
+                } else {
+                    $submit.addClass('disabled');
+                    $submit.prop('disabled', true);
+                    $errorMessage.removeClass('hidden');
+                }
+            }
+        });
+});
+{% endjs %}

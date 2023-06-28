@@ -4,7 +4,9 @@ namespace glueagency\searchabledocuments\elementactions;
 
 use Craft;
 use craft\base\ElementAction;
+use craft\elements\db\AssetQuery;
 use craft\elements\db\ElementQueryInterface;
+use craft\elements\db\EntryQuery;
 use craft\helpers\Queue;
 use glueagency\searchabledocuments\jobs\BatchParseDocumentsJob;
 use glueagency\searchabledocuments\SearchableDocuments;
@@ -18,10 +20,20 @@ class ParseDocumentsAction extends ElementAction
 
     public function performAction(ElementQueryInterface $query): bool
     {
-        $fileTypes = SearchableDocuments::getInstance()->getSettings()->getFileTypes();
-        Queue::push(new BatchParseDocumentsJob([
-            'query' => $query->kind(array_keys($fileTypes))
-        ]));
+        if ($query instanceof AssetQuery){
+            $fileTypes = SearchableDocuments::getInstance()->getSettings()->getFileTypes();
+            Queue::push(new BatchParseDocumentsJob([
+                'query' => $query->kind(array_keys($fileTypes))
+            ]));
+        }
+
+        if ($query instanceof EntryQuery) {
+            $searchableSectionHandle = SearchableDocuments::getInstance()->getSettings()->searchableSectionHandle;
+            Queue::push(new BatchParseDocumentsJob([
+                'parseByEntry' => true,
+                'query' => $query->section($searchableSectionHandle)
+            ]));
+        }
 
         $this->setMessage(Craft::t('_searchable-documents', 'Parsing of documents pushed to queue'));
         return true;

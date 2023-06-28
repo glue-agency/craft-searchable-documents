@@ -5,9 +5,11 @@ namespace glueagency\searchabledocuments\models;
 use Craft;
 use craft\base\Model;
 use craft\elements\Asset;
+use craft\fields\Assets;
 use craft\helpers\Assets as AssetsHelper;
-use Smalot\PdfParser\Parser as PdfParser;
 use PhpOffice\PhpWord\Reader\Word2007 as WordParser;
+use Smalot\PdfParser\Parser as PdfParser;
+use yii\base\InvalidConfigException;
 
 /**
  * Searchable Documents settings
@@ -15,27 +17,26 @@ use PhpOffice\PhpWord\Reader\Word2007 as WordParser;
 class Settings extends Model
 {
     public string $pluginName = "Searchable Documents";
+    public bool $autoParseEntry = false;
 
-    public bool $autoParse = false;
+    public ?string $searchableSectionHandle = null;
+    public ?string $searchableFieldHandle = null;
 
-    public array $parseOptions = [
-        'pdf' => PdfParser::class,
-        'word' => WordParser::class,
-    ];
+    public bool $settingsLocked = true;
 
     public function attributeLabels(): array
     {
         return [
-            'pluginName' => Craft::t('searchable-documents', 'Plugin name'),
+            'pluginName' => Craft::t('_searchable-documents', 'Plugin name'),
         ];
     }
 
 
     public function defineRules(): array
     {
-        return [
-            [['pluginName'], 'required'],
-        ];
+        $rules = parent::defineRules();
+        $rules[] = [['pluginName', 'searchableSectionHandle', 'searchableFieldHandle'], 'required'];
+        return $rules;
     }
 
     public function getParsers(): array
@@ -68,5 +69,52 @@ class Settings extends Model
                 'value' => Asset::KIND_TEXT
             ],
         ];
+    }
+
+    public function getSections(): array
+    {
+        $sections = [
+            [
+                'value' => '',
+                'label' => Craft::t('_searchable-documents', 'Select a section'),
+                'disabled' => true,
+            ]
+        ];
+        foreach (Craft::$app->sections->getAllSections() as $section) {
+            $sections[] = [
+                'value' => $section->handle,
+                'label' => $section->name
+            ];
+        }
+
+        return $sections;
+    }
+
+    /**
+     * @throws InvalidConfigException
+     */
+    public function getFieldsForSection($sectionHandel): array
+    {
+        $entryTypes = Craft::$app->sections->getSectionByHandle($sectionHandel)->getEntryTypes();
+        $defaultEntryType = $entryTypes[0];
+        $layout = $defaultEntryType->getFieldLayout();
+        $customFields = $layout->getCustomFields();
+        $fields = [
+            [
+                'value' => '',
+                'label' => Craft::t('_searchable-documents', 'Select a field'),
+                'disabled' => true,
+            ]
+        ];
+        foreach ($customFields as $field) {
+            if ($field instanceof Assets) {
+                $fields[] = [
+                    'value' => $field->handle,
+                    'label' => $field->name,
+                ];
+            }
+        }
+
+        return $fields;
     }
 }
