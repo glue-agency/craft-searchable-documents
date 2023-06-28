@@ -4,22 +4,14 @@ namespace glueagency\searchabledocuments\controllers;
 
 
 use Craft;
-use craft\errors\BusyResourceException;
-use craft\errors\StaleResourceException;
 use craft\fieldlayoutelements\CustomField;
 use craft\helpers\UrlHelper;
-use craft\services\Config;
-use craft\services\ProjectConfig;
 use craft\web\Controller;
-use glueagency\searchabledocuments\models\Settings;
 use glueagency\searchabledocuments\SearchableDocuments;
-use yii\base\ErrorException;
 use yii\base\Exception;
 use yii\base\InvalidConfigException;
-use yii\base\NotSupportedException;
 use yii\web\BadRequestHttpException;
 use yii\web\Response;
-use yii\web\ServerErrorHttpException;
 
 class SettingsController extends Controller {
     protected array|int|bool $allowAnonymous = self::ALLOW_ANONYMOUS_NEVER;
@@ -43,6 +35,7 @@ class SettingsController extends Controller {
     /**
      * @throws InvalidConfigException
      * @throws \Exception
+     * @throws \Throwable
      */
     public function actionUnlock(): Response
     {
@@ -55,7 +48,7 @@ class SettingsController extends Controller {
         $layout = $defaultEntry->getFieldLayout();
         $tabs = $layout->getTabs();
         $elements = $tabs[0]->getElements();
-        foreach ($tabs[0]->getElements() as $key => $element) {
+        foreach ($elements as $key => &$element) {
             if ($element instanceof CustomField && $element->fieldUid === $field->uid) {
                 unset($elements[$key]);
             }
@@ -63,8 +56,9 @@ class SettingsController extends Controller {
 
         $tabs[0]->setElements($elements);
         $layout->setTabs($tabs);
+
         Craft::$app->fields->saveLayout($layout);
-        Craft::$app->sections->saveSection($section);
+        Craft::$app->sections->saveEntryType($defaultEntry);
 
         try {
             Craft::$app->projectConfig->set('plugins._searchable-documents.settings.settingsLocked', false);

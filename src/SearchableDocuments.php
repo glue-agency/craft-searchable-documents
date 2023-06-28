@@ -93,6 +93,7 @@ class SearchableDocuments extends Plugin
      * @throws Exception
      * @throws InvalidConfigException
      * @throws \Exception
+     * @throws \Throwable
      */
     public function afterSaveSettings(): void
     {
@@ -128,7 +129,7 @@ class SearchableDocuments extends Plugin
             $tabs[0]->setElements(array_merge($tabs[0]->getElements(), [$newElement]));
             $layout->setTabs($tabs);
             Craft::$app->fields->saveLayout($layout);
-            Craft::$app->sections->saveSection($section);
+            Craft::$app->sections->saveEntryType($defaultEntry);
         }
     }
 
