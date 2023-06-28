@@ -64,6 +64,7 @@ class SettingsController extends Controller {
         $tabs[0]->setElements($elements);
         $layout->setTabs($tabs);
         Craft::$app->fields->saveLayout($layout);
+        Craft::$app->sections->saveSection($section);
 
         try {
             Craft::$app->projectConfig->set('plugins._searchable-documents.settings.settingsLocked', false);
