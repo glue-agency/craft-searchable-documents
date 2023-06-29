@@ -204,7 +204,7 @@ class SearchableDocuments extends Plugin
             Event::on(
                 Asset::class,
                 Element::EVENT_DEFINE_ADDITIONAL_BUTTONS,
-                function (DefineHtmlEvent $event) {
+                function (DefineHtmlEvent $event) use ($fileTypes) {
                     /** @var Asset $asset */
                     $asset = $event->sender;
                     $customFields = $asset->getFieldLayout()->getCustomFields();
@@ -215,7 +215,7 @@ class SearchableDocuments extends Plugin
                     if (!$layoutHasField) {
                         return;
                     }
-                    $fileTypes = $this->getSettings()->getFileTypes();
+
                     if (in_array($asset->kind, array_keys($fileTypes))) {
                         // Return the button HTML
                         $url = UrlHelper::actionUrl('_searchable-documents/documents/index', ['asset_id' => $asset->id]);
