@@ -4,11 +4,6 @@
     {{ csrfInput() }}
     <div class="flex">
         <a class="btn submit formsubmit" data-icon="refresh"
-           data-action="_searchable-documents/documents/parse-all"
-           data-confirm="{{ 'Are you sure you want to parse all documents?'|t('_searchable-documents') }}">
-            {{ 'Parse all documents'|t('_searchable-documents') }}
-        </a>
-        <a class="btn submit formsubmit" data-icon="refresh"
            data-action="_searchable-documents/documents/parse-all-entries"
            data-confirm="{{ 'Are you sure you want to parse all searchable document entries?'|t('_searchable-documents') }}">
             {{ 'Parse all searchable entries'|t('_searchable-documents') }}
