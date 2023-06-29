@@ -64,6 +64,10 @@ class Settings extends Model
                 'label' => AssetsHelper::getFileKindLabel(Asset::KIND_WORD),
                 'value' => Asset::KIND_WORD
             ],
+            Asset::KIND_EXCEL => [
+                'label' => AssetsHelper::getFileKindLabel(Asset::KIND_EXCEL),
+                'value' => Asset::KIND_EXCEL
+            ],
             Asset::KIND_TEXT => [
                 'label' => AssetsHelper::getFileKindLabel(Asset::KIND_TEXT),
                 'value' => Asset::KIND_TEXT

@@ -21,7 +21,9 @@
         "rubiconinternational/pdfparser": "v2.1.1",
         "spatie/pdf-to-text": "^1.52",
         "phpoffice/phpword": "^1.1",
-        "dompdf/dompdf": "^2.0"
+        "phpoffice/phpspreadsheet": "^1.1",
+        "dompdf/dompdf": "^2.0",
+        "mpdf/mpdf": "^8.1"
     },
     "require-dev": {
         "craftcms/ecs": "dev-main",

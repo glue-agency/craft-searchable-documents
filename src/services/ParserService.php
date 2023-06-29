@@ -11,25 +11,36 @@ use craft\helpers\App;
 use craft\helpers\FileHelper;
 use craft\helpers\Search as SearchHelper;
 use glueagency\searchabledocuments\SearchableDocuments;
+use PhpOffice\PhpSpreadsheet\IOFactory as PhpSpreadsheetFactory;
+use PhpOffice\PhpSpreadsheet\Writer\Pdf\Mpdf;
 use PhpOffice\PhpWord\Element\Text;
 use PhpOffice\PhpWord\Element\TextRun;
-use PhpOffice\PhpWord\IOFactory;
+use PhpOffice\PhpWord\IOFactory as PhpWordFactory;
 use PhpOffice\PhpWord\Reader\MsDoc;
 use PhpOffice\PhpWord\Reader\Word2007;
-use PhpOffice\PhpWord\Settings;
-use Smalot\PdfParser\Page;
-use Smalot\PdfParser\Parser;
-use Smalot\PdfParser\Config;
+use PhpOffice\PhpWord\Settings as PhpWordSettings;
+use Spatie\PdfToText\Pdf;
 use yii\base\Component;
 use yii\base\Exception;
 use yii\base\InvalidConfigException;
-use Spatie\PdfToText\Pdf;
 
 /**
  * Parser Service service
  */
 class ParserService extends Component
 {
+    public string $tempFilePath = '';
+
+    /**
+     * @throws Exception
+     */
+    public function __construct($config = [])
+    {
+        parent::__construct($config);
+
+        $this->tempFilePath = FileHelper::normalizePath(Craft::$app->getPath()->getRuntimePath() . '/searchable_documents/');
+    }
+
     /**
      * @throws ElementNotFoundException
      * @throws \Throwable
@@ -42,11 +53,14 @@ class ParserService extends Component
         $url = $this->getFilePath($asset);
         $text = false;
         switch ($kind) {
-            case 'pdf':
+            case Asset::KIND_PDF:
                 $text = $this->parsePdf($url);
                 break;
-            case 'word':
+            case Asset::KIND_WORD:
                 $text = $this->parseWord($asset);
+                break;
+            case Asset::KIND_EXCEL:
+                $text = $this->parseExcel($asset);
                 break;
         }
         if (!empty($text)) {
@@ -148,7 +162,7 @@ class ParserService extends Component
     }
 
     /**
-     * @throws InvalidConfigException|\PhpOffice\PhpWord\Exception\Exception
+     * @throws InvalidConfigException
      */
     public function parseWord(Asset $asset): string
     {
@@ -195,6 +209,27 @@ class ParserService extends Component
 
     /**
      * @throws Exception
+     * @throws InvalidConfigException
+     * @throws \PhpOffice\PhpSpreadsheet\Writer\Exception
+     * @throws \PhpOffice\PhpSpreadsheet\Reader\Exception
+     */
+    public function parseExcel(Asset $asset): string
+    {
+        $url = $this->getFilePath($asset);
+        $testAgainstFormats = [
+            PhpSpreadsheetFactory::READER_XLS,
+            PhpSpreadsheetFactory::READER_XLSX,
+        ];
+        $reader = PhpSpreadsheetFactory::createReaderForFile($url, $testAgainstFormats);
+        $reader->setReadDataOnly(true);
+
+        $content = $reader->load($url);
+
+        return $this->convertExcelToPdf($asset, $content);
+    }
+
+    /**
+     * @throws Exception
      * @throws \PhpOffice\PhpWord\Exception\Exception
      * @throws \Exception
      */
@@ -202,19 +237,42 @@ class ParserService extends Component
     {
         $text = '';
 
-        Settings::setPdfRendererName(Settings::PDF_RENDERER_DOMPDF);
-        Settings::setPdfRendererPath('.');
-        $objWriter = IOFactory::createWriter($content, 'PDF');
+        PhpWordSettings::setPdfRendererName(PhpWordSettings::PDF_RENDERER_MPDF);
+        PhpWordSettings::setPdfRendererPath('.');
+        $objWriter = PhpWordFactory::createWriter($content, 'PDF');
 
-        $runtimePath = FileHelper::normalizePath(Craft::$app->getPath()->getRuntimePath() . '/searchable_documents/');
-        if (FileHelper::createDirectory($runtimePath)) {
-            $tempFilePath = Craft::$app->getPath()->getRuntimePath() . '/searchable_documents/'  . $asset->getFilename(false) . '.pdf';
+        if (FileHelper::createDirectory($this->tempFilePath)) {
+            $tempFilePath = $this->tempFilePath  . $asset->getFilename(false) . '.pdf';
             $objWriter->save($tempFilePath);
 
             $text = $this->parsePdf($tempFilePath);
 
             FileHelper::deleteFileAfterRequest($tempFilePath);
         }
+        return $text;
+    }
+
+    /**
+     * @throws \PhpOffice\PhpSpreadsheet\Writer\Exception
+     * @throws InvalidConfigException
+     * @throws Exception
+     * @throws \Exception
+     */
+    public function convertExcelToPdf(Asset $asset, $content): string
+    {
+        $text = '';
+
+        if (FileHelper::createDirectory($this->tempFilePath)) {
+            $tempFilePath = $this->tempFilePath  . $asset->getFilename(false) . '.pdf';
+            $writer = new Mpdf($content);
+            $writer->setUseInlineCss(false);
+            $writer->writeAllSheets();
+            $writer->setGenerateSheetNavigationBlock(false);
+            $writer->save($tempFilePath);
+            $text = $this->parsePdf($tempFilePath);
+            FileHelper::deleteFileAfterRequest($tempFilePath);
+        }
+
         return $text;
     }
 
