@@ -53,7 +53,9 @@ class BatchParseDocumentsJob extends BaseBatchedJob {
         if ($this->parseByEntry) {
             $searchableFieldHandle = SearchableDocuments::getInstance()->getSettings()->searchableFieldHandle;
             $asset = $item->{$searchableFieldHandle}->one();
-            SearchableDocuments::getInstance()->parserService->parseEntryDocument($item, $asset);
+            if ($asset) {
+                SearchableDocuments::getInstance()->parserService->parseEntryDocument($item, $asset);
+            }
         } else {
             SearchableDocuments::getInstance()->parserService->parseDocument($item);
         }

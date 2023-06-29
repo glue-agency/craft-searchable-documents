@@ -49,7 +49,7 @@ class ParserService extends Component
                 $text = $this->parseWord($asset);
                 break;
         }
-        if ($text) {
+        if (!empty($text)) {
             if ($return_text) {
                 return $text;
             }
@@ -57,6 +57,16 @@ class ParserService extends Component
         }
 
         return false;
+    }
+
+    /**
+     * @throws Exception
+     * @throws \Throwable
+     * @throws ElementNotFoundException
+     */
+    public function clearDocument(Asset $asset): void
+    {
+        $this->saveToElement($asset, null, false);
     }
 
     /**
@@ -72,6 +82,16 @@ class ParserService extends Component
     }
 
     /**
+     * @throws Exception
+     * @throws \Throwable
+     * @throws ElementNotFoundException
+     */
+    public function clearEntryDocument(Entry $entry): void
+    {
+        $this->saveToElement($entry, null, false);
+    }
+
+    /**
      * @throws \Throwable
      * @throws ElementNotFoundException
      * @throws InvalidConfigException
@@ -83,6 +103,9 @@ class ParserService extends Component
         foreach ($assets as $asset) {
             $text .= $this->parseDocument($asset, true);
         }
+
+        if (empty($text)) return false;
+
         return $this->saveToElement($entry, $text);
     }
 
@@ -91,10 +114,12 @@ class ParserService extends Component
      * @throws \Throwable
      * @throws Exception
      */
-    public function saveToElement(Element $element, $text): bool
+    public function saveToElement(Element $element, $text, $normalize = true): bool
     {
         $site = $element->getSite();
-        $text = SearchHelper::normalizeKeywords($text, [], true, $site->language);
+        if ($normalize) {
+            $text = SearchHelper::normalizeKeywords($text, [], true, $site->language);
+        }
 
         $element->setFieldValue(SearchableDocuments::SEARCHABLE_FIELD_HANDLE, $text);
 
@@ -134,30 +159,36 @@ class ParserService extends Component
         }
 
         $url = $this->getFilePath($asset);
-        $content = $parser->load($url);
-        $sections = $content->getSections();
         $text = '';
-        foreach ($sections as $section) {
-            $sectionElement = $section->getElements();
-            foreach ($sectionElement as $elementValue) {
-                if ($elementValue instanceof TextRun) {
-                    $secondSectionElement = $elementValue->getElements();
-                    foreach ($secondSectionElement as $secondSectionElementValue) {
-                        if ($secondSectionElementValue instanceof Text) {
-                            $text .= $secondSectionElementValue->getText() . ' ';
+
+        try {
+            $content = $parser->load($url);
+            $sections = $content->getSections();
+            foreach ($sections as $section) {
+                $sectionElement = $section->getElements();
+                foreach ($sectionElement as $elementValue) {
+                    if ($elementValue instanceof TextRun) {
+                        $secondSectionElement = $elementValue->getElements();
+                        foreach ($secondSectionElement as $secondSectionElementValue) {
+                            if ($secondSectionElementValue instanceof Text) {
+                                $text .= $secondSectionElementValue->getText() . ' ';
+                            }
                         }
                     }
                 }
             }
+
+            if (empty($text)) {
+                try {
+                    $text = $this->convertWordToPdf($asset, $content);
+                } catch (Exception $e) {
+                    SearchableDocuments::error($e->getMessage());
+                }
+            }
+        } catch (\Exception $e) {
+            SearchableDocuments::error($e->getMessage());
         }
 
-        if (empty($text)) {
-            try {
-                $text = $this->convertWordToPdf($asset, $content);
-            } catch (Exception $e) {
-                SearchableDocuments::error($e->getMessage());
-            }
-        }
 
         return $text;
     }
