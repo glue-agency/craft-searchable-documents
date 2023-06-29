@@ -242,19 +242,19 @@ class SearchableDocuments extends Plugin
                         return;
                     }
 
-                    $asset = $entry->{$searchableFieldHandle}->one();
-                    if (!$asset && !empty($entry->{self::SEARCHABLE_FIELD_HANDLE})) {
+                    $assets = $entry->{$searchableFieldHandle}->kind(array_keys($fileTypes))->all();
+                    if (!count($assets) && !empty($entry->{self::SEARCHABLE_FIELD_HANDLE})) {
                         $entry->setFieldValue(self::SEARCHABLE_FIELD_HANDLE, null);
                         Craft::$app->elements->saveElement($entry);
+                        return;
                     }
                     if (
                         $entry->firstSave &&
-                        $asset &&
-                        in_array($asset->kind, array_keys($fileTypes)) &&
+                        count($assets) &&
                         empty($entry->{self::SEARCHABLE_FIELD_HANDLE}) &&
                         $this->getSettings()->autoParseEntry
                     ) {
-                        $this->parserService->parseEntryDocument($entry, $asset);
+                        $this->parserService->parseMultipleDocumentsForEntry($entry, $assets);
                     }
                 }
             );
