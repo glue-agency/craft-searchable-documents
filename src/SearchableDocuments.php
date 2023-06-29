@@ -234,7 +234,7 @@ class SearchableDocuments extends Plugin
                         return;
                     }
 
-                    if ($entry->getType()->handle !== $searchableSectionHandle) {
+                    if ($entry->getSection()->handle !== $searchableSectionHandle) {
                         return;
                     }
 
