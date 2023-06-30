@@ -62,6 +62,9 @@ class ParserService extends Component
             case Asset::KIND_EXCEL:
                 $text = $this->parseExcel($asset);
                 break;
+            case Asset::KIND_POWERPOINT:
+                $text = $this->parsePowerpoint($asset);
+                break;
         }
         if (!empty($text)) {
             if ($return_text) {
@@ -166,45 +169,81 @@ class ParserService extends Component
      */
     public function parseWord(Asset $asset): string
     {
-        $extension = $asset->extension;
-        $parser = new Word2007();
-        if ($extension === 'doc') {
-            $parser = new MsDoc();
+        $filepath = $this->getFilePath($asset);
+        if ($this->isZipFile($filepath)) {
+            $text = $this->extractContentFromDocx($filepath);
+        } else {
+            $text = $this->extractContentFromDoc($filepath);
         }
-
-        $url = $this->getFilePath($asset);
-        $text = '';
-
-        try {
-            $content = $parser->load($url);
-            $sections = $content->getSections();
-            foreach ($sections as $section) {
-                $sectionElement = $section->getElements();
-                foreach ($sectionElement as $elementValue) {
-                    if ($elementValue instanceof TextRun) {
-                        $secondSectionElement = $elementValue->getElements();
-                        foreach ($secondSectionElement as $secondSectionElementValue) {
-                            if ($secondSectionElementValue instanceof Text) {
-                                $text .= $secondSectionElementValue->getText() . ' ';
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (empty($text)) {
-                try {
-                    $text = $this->convertWordToPdf($asset, $content);
-                } catch (Exception $e) {
-                    SearchableDocuments::error($e->getMessage());
-                }
-            }
-        } catch (\Exception $e) {
-            SearchableDocuments::error($e->getMessage());
-        }
-
-
         return $text;
+    }
+
+    /**
+     * Quick method for extracting text from a word 2007+ document.
+     * @param $filepath
+     * @return bool|string
+     */
+    protected function extractContentFromDocx(string $filepath): string
+    {
+        $response = '';
+        $xml_filename = 'word/document.xml';
+        $zip = new \ZipArchive();
+
+        if (true === $zip->open($filepath)) {
+            $xml_index = $zip->locateName($xml_filename);
+            if ($xml_index !== false) {
+                $xml_data = $zip->getFromIndex($xml_index);
+                //process data to retain line breaks between sections of text and remove all other tags.
+                $response = str_replace('</w:r></w:p></w:tc><w:tc>', ' ', $xml_data);
+                $response = str_replace('</w:r></w:p>', "\r\n", $response);
+                $response = strip_tags($response);
+            }
+            $zip->close();
+        }
+
+        if (empty($response)) {
+            $response = '';
+        }
+
+        return $response;
+    }
+
+    /**
+     * Quick method for extracting text from a word 97 ".doc" document.
+     * Only grabs text from the main document. Does not include headers, notes or footnotes.
+     * @author Adapted from doc2txt by gouravmehta - https://www.phpclasses.org/package/7934-PHP-Convert-MS-Word-Docx-files-to-text.html
+     * @author Adapted from Q/A by M Khalid Junaid - https://stackoverflow.com/questions/19503653/how-to-extract-text-from-word-file-doc-docx-xlsx-pptx-php
+     * @see https://docs.microsoft.com/en-us/openspecs/office_file_formats/ms-doc/ccd7b486-7881-484c-a137-51170af7cc22
+     * @param $filepath
+     * @return string
+     */
+    protected function extractContentFromDoc(string $filepath): string
+    {
+        $fileHandle = fopen($filepath, 'r');
+        $line = @fread($fileHandle, filesize($filepath));
+        //Break document apart using paragraph markers.
+        $lines = explode(chr(0x0D), $line);
+        $response = '';
+
+        foreach ($lines as $current_line) {
+
+            $pos = strpos($current_line, chr(0x00));
+
+            if (($pos !== false) || (strlen($current_line) == 0)) {
+                //no op
+            } else {
+                $response .= $current_line . ' ';
+            }
+        }
+
+        $response = preg_replace('/[^a-zA-Z0-9\s,.\-\n\r\t@\/_()]/', '', $response);
+
+        //Technique pulls text in on first line. Subsequent lines are noise.
+        $nl = stripos($response, "\n");
+        if ($nl) {
+            $response = substr($response, 0, $nl);
+        }
+        return $response;
     }
 
     /**
@@ -226,6 +265,57 @@ class ParserService extends Component
         $content = $reader->load($url);
 
         return $this->convertExcelToPdf($asset, $content);
+    }
+
+    /**
+     * Extract text for any type included in Asset::KIND_POWERPOINT.
+     * @param Asset $asset
+     * @return string
+     * @throws InvalidConfigException
+     * @see craft/vendor/craftcms/cms/src/helpers/Assets.php Line 525
+     */
+    public function parsePowerpoint(Asset $asset): string
+    {
+        $filepath = $this->getFilePath($asset);
+
+        if ($this->isZipFile($filepath)) {
+            $text = $this->extractContentFromPptx($filepath);
+        } else {
+            //TODO: Add support for powerpoint 97 (.ppt) documents
+            Craft::info('Cannot extract text from ' . $filepath, __METHOD__);
+            $text = '';
+        }
+        return $text;
+    }
+
+    /**
+     * Extract content from a powerpoint pptx file.
+     * @param string $filepath
+     * @return string
+     */
+    protected function extractContentFromPptx(string $filepath): string
+    {
+        $zip_handle = new \ZipArchive();
+        $response = '';
+
+        if (true === $zip_handle->open($filepath)) {
+
+            $slide_number = 1; //loop through slide files
+            $doc = new \DOMDocument();
+
+            while (($xml_index = $zip_handle->locateName('ppt/slides/slide' . $slide_number . '.xml')) !== false) {
+
+                $xml_data = $zip_handle->getFromIndex($xml_index);
+
+                $doc->loadXML($xml_data, LIBXML_NOENT | LIBXML_XINCLUDE | LIBXML_NOERROR | LIBXML_NOWARNING);
+                $response .= strip_tags($doc->saveXML());
+
+                $slide_number++;
+
+            }
+            $zip_handle->close();
+        }
+        return $response;
     }
 
     /**
@@ -274,6 +364,40 @@ class ParserService extends Component
         }
 
         return $text;
+    }
+
+    /**
+     * Extract text for any type included in Asset::KIND_TEXT.
+     * @param Asset $asset
+     * @return string
+     * @throws InvalidConfigException
+     * @see craft/vendor/craftcms/cms/src/helpers/Assets.php Line 525
+     */
+    public function extractContentFromText(Asset $asset): string
+    {
+        $filepath = $this->getFilePath($asset);
+        Craft::info('Extracting text content from Text : ' . $filepath, __METHOD__);
+
+        $text = file_get_contents($filepath, false);
+
+        if (empty($text)) {
+            $text = '';
+        }
+        return $text;
+    }
+
+    /**
+     * Detect if a file is a pkzip archive.
+     * @param string $filepath
+     * @return bool
+     */
+    public function isZipFile(string $filepath): bool
+    {
+        $fh = fopen($filepath, 'r');
+        $bytes = fread($fh, 4);
+        fclose($fh);
+        //according to zip file spec, all zip files start with the same 4 bytes.
+        return ('504b0304' === bin2hex($bytes));
     }
 
     /**

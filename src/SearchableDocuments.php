@@ -8,16 +8,19 @@ use craft\base\Model;
 use craft\base\Plugin;
 use craft\elements\Asset;
 use craft\elements\Entry;
+use craft\events\DefineBehaviorsEvent;
 use craft\events\DefineHtmlEvent;
 use craft\events\ModelEvent;
 use craft\events\RegisterComponentTypesEvent;
 use craft\events\RegisterElementActionsEvent;
+use craft\events\RegisterElementSearchableAttributesEvent;
 use craft\fieldlayoutelements\CustomField;
 use craft\helpers\ElementHelper;
 use craft\helpers\UrlHelper;
 use craft\log\MonologTarget;
 use craft\services\Utilities;
 use craft\web\twig\variables\CraftVariable;
+use glueagency\searchabledocuments\behaviors\SearchableContentBehavior;
 use glueagency\searchabledocuments\elementactions\ParseDocumentsAction;
 use glueagency\searchabledocuments\models\Settings;
 use glueagency\searchabledocuments\services\ParserService;
@@ -109,9 +112,9 @@ class SearchableDocuments extends Plugin
             $field = Craft::$app->fields->getFieldByHandle(self::SEARCHABLE_FIELD_HANDLE);
 
             foreach ($tabs[0]->getElements() as $element) {
-               if ($element instanceof CustomField && $element->fieldUid === $field->uid) {
+                if ($element instanceof CustomField && $element->fieldUid === $field->uid) {
                     return;
-               }
+                }
             }
 
             $newElement = [
@@ -137,7 +140,7 @@ class SearchableDocuments extends Plugin
     protected function settingsHtml(): ?string
     {
         return Craft::$app->view->renderTemplate('_searchable-documents/settings.twig', [
-            'plugin'   => $this,
+            'plugin' => $this,
             'settings' => $this->getSettings(),
         ]);
     }
@@ -182,7 +185,7 @@ class SearchableDocuments extends Plugin
                 function (DefineHtmlEvent $event) use ($searchableSectionHandle, $searchableFieldHandle, $fileTypes) {
                     $entry = $event->sender;
                     $customFields = $entry->getFieldLayout()->getCustomFields();
-                    $layoutHasField = array_filter($customFields, function($field) {
+                    $layoutHasField = array_filter($customFields, function ($field) {
                         return $field->handle === self::SEARCHABLE_FIELD_HANDLE;
                     });
                     if ($entry->section->handle === $searchableSectionHandle && $layoutHasField) {
@@ -202,13 +205,41 @@ class SearchableDocuments extends Plugin
             );
 
             Event::on(
+                Entry::class,
+                Model::EVENT_DEFINE_BEHAVIORS,
+                function (DefineBehaviorsEvent $event) use ($searchableSectionHandle) {
+                    if (!$event->sender instanceof Entry) {
+                        return;
+                    }
+                    $entry = $event->sender;
+                    if (!$entry->getFieldLayout()) {
+                        return;
+                    }
+                    $customFields = $entry->getFieldLayout()->getCustomFields();
+                    $layoutHasField = array_filter($customFields, function ($field) {
+                        return $field->handle === self::SEARCHABLE_FIELD_HANDLE;
+                    });
+                    if ($entry->section->handle === $searchableSectionHandle && $layoutHasField) {
+                        $event->behaviors[] = SearchableContentBehavior::class;
+                    }
+                }
+            );
+
+            Event::on(
+                Entry::class,
+                Element::EVENT_REGISTER_SEARCHABLE_ATTRIBUTES,
+                function (RegisterElementSearchableAttributesEvent $event) {
+                    $event->attributes[] = 'contentKeywords';
+                });
+
+            Event::on(
                 Asset::class,
                 Element::EVENT_DEFINE_ADDITIONAL_BUTTONS,
                 function (DefineHtmlEvent $event) use ($fileTypes) {
                     /** @var Asset $asset */
                     $asset = $event->sender;
                     $customFields = $asset->getFieldLayout()->getCustomFields();
-                    $layoutHasField = array_filter($customFields, function($field) {
+                    $layoutHasField = array_filter($customFields, function ($field) {
                         return $field->handle === self::SEARCHABLE_FIELD_HANDLE;
                     });
 
@@ -306,12 +337,12 @@ class SearchableDocuments extends Plugin
     private function registerLogTarget(): void
     {
         Craft::getLogger()->dispatcher->targets['searchable-documents'] = new MonologTarget([
-            'name'            => 'searchable-documents',
-            'categories'      => ['searchable-documents'],
-            'level'           => LogLevel::INFO,
-            'logContext'      => false,
+            'name' => 'searchable-documents',
+            'categories' => ['searchable-documents'],
+            'level' => LogLevel::INFO,
+            'logContext' => false,
             'allowLineBreaks' => true,
-            'formatter'       => new LineFormatter(
+            'formatter' => new LineFormatter(
                 format: "%datetime% %message%\n",
                 dateFormat: 'Y-m-d H:i:s',
             ),
